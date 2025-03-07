@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YAML Profile Generator</title>
+    <script src="https://cdn.jsdelivr.net/npm/js-yaml/dist/js-yaml.min.js"></script>
+</head>
+<body>
+
+    <h2>Generate YAML for Profiles</h2>
+
+    <button onclick="addProfile()">Add Profile</button>
+    <form id="profilesForm"></form>
+
+    <button onclick="generateYAML()">Generate YAML</button>
+
+    <h3>Generated YAML:</h3>
+    <pre id="output"></pre>
+
+    <button id="downloadBtn" style="display:none;">Download YAML</button>
+
+    <script>
+        let profileCount = 0;
+
+        function addProfile() {
+            profileCount++;
+            const form = document.getElementById("profilesForm");
+
+            const profileDiv = document.createElement("div");
+            profileDiv.id = `profile-${profileCount}`;
+            profileDiv.innerHTML = `
+                <h4>Profile ${profileCount}</h4>
+                <label>Name: <input type="text" id="name-${profileCount}" required></label><br><br>
+                
+                <h5>Billing</h5>
+                <label>Currency (comma-separated): <input type="text" id="currency-${profileCount}" oninput="updateCurrencyDropdown(${profileCount})" required></label><br><br>
+                
+                <label>Dimensions (comma-separated): <input type="text" id="dimensions-${profileCount}" oninput="updateDimensionDropdown(${profileCount})" required></label><br><br>
+
+                <h5>Ratecards</h5>
+                <div id="ratecards-${profileCount}"></div>
+                <button type="button" onclick="addRatecard(${profileCount})">Add Ratecard</button>
+                <hr>
+            `;
+            form.appendChild(profileDiv);
+        }
+
+        function updateDimensionDropdown(profileId) {
+            const dimensionsInput = document.getElementById(`dimensions-${profileId}`).value;
+            const dimensions = dimensionsInput.split(',').map(dim => dim.trim()).filter(dim => dim);
+
+            document.querySelectorAll(`.dimension-${profileId}`).forEach(dropdown => {
+                const previousSelection = dropdown.value; // Save current selection
+                dropdown.innerHTML = ""; // Clear existing options
+
+                dimensions.forEach(dim => {
+                    const option = document.createElement("option");
+                    option.value = dim;
+                    option.textContent = dim;
+                    dropdown.appendChild(option);
+                });
+
+                if (dimensions.includes(previousSelection)) {
+                    dropdown.value = previousSelection; // Restore previous selection
+                }
+            });
+        }
+
+        function updateCurrencyDropdown(profileId) {
+            const currencyInput = document.getElementById(`currency-${profileId}`).value;
+            const currencies = currencyInput.split(',').map(c => c.trim()).filter(c => c);
+
+            document.querySelectorAll(`.currency-${profileId}`).forEach(dropdown => {
+                const previousSelection = dropdown.value; // Save current selection
+                dropdown.innerHTML = ""; // Clear existing options
+
+                currencies.forEach(curr => {
+                    const option = document.createElement("option");
+                    option.value = curr;
+                    option.textContent = curr;
+                    dropdown.appendChild(option);
+                });
+
+                if (currencies.includes(previousSelection)) {
+                    dropdown.value = previousSelection; // Restore previous selection
+                }
+            });
+        }
+
+        function addRatecard(profileId) {
+            const ratecardsDiv = document.getElementById(`ratecards-${profileId}`);
+
+            const ratecardDiv = document.createElement("div");
+
+            let dimensionDropdown = `<label>Dimension: <select class="dimension-${profileId}" required></select></label><br>`;
+            let currencyDropdown = `<label>Currency: <select class="currency-${profileId}" required></select></label><br>`;
+
+            ratecardDiv.innerHTML = `
+                ${dimensionDropdown}
+                ${currencyDropdown}
+                <label>Price: <input type="number" class="price-${profileId}" required></label><br>
+                <label>Time Unit: <input type="text" class="time_unit-${profileId}" required></label><br>
+                <label>Value (optional): <input type="text" class="value-${profileId}"></label><br>
+                <label>Base Unit (optional): <input type="number" class="base_unit-${profileId}"></label><br>
+                <hr>
+            `;
+            ratecardsDiv.appendChild(ratecardDiv);
+
+            // Update dropdowns immediately
+            updateDimensionDropdown(profileId);
+            updateCurrencyDropdown(profileId);
+        }
+
+        function generateYAML() {
+            const profiles = [];
+            for (let i = 1; i <= profileCount; i++) {
+                if (!document.getElementById(`name-${i}`)) continue; // Skip removed profiles
+                
+                const name = document.getElementById(`name-${i}`).value;
+                const currencies = document.getElementById(`currency-${i}`).value.split(',').map(c => c.trim());
+                const dimensions = document.getElementById(`dimensions-${i}`).value.split(',').map(d => d.trim());
+
+                const ratecards = {};
+
+                document.querySelectorAll(`.dimension-${i}`).forEach((dimInput, index) => {
+                    const dimension = dimInput.value;
+                    const currency = document.querySelectorAll(`.currency-${i}`)[index].value;
+                    const price = document.querySelectorAll(`.price-${i}`)[index].value;
+                    const time_unit = document.querySelectorAll(`.time_unit-${i}`)[index].value;
+                    const value = document.querySelectorAll(`.value-${i}`)[index].value; // String input now
+                    const base_unit = document.querySelectorAll(`.base_unit-${i}`)[index].value;
+
+                    if (!ratecards[dimension]) ratecards[dimension] = [];
+                    const ratecardEntry = {
+                        price: parseFloat(price),
+                        time_unit,
+                        currency
+                    };
+                    if (value) ratecardEntry.value = value; // Now a string
+                    if (base_unit) ratecardEntry.base_unit = parseInt(base_unit);
+
+                    ratecards[dimension].push(ratecardEntry);
+                });
+
+                profiles.push({
+                    name,
+                    billing: {
+                        currency: currencies,
+                        dimensions,
+                        ratecard: ratecards
+                    }
+                });
+            }
+
+            const yamlString = jsyaml.dump({ profiles });
+            document.getElementById("output").textContent = yamlString;
+
+            // Enable download button
+            const downloadBtn = document.getElementById("downloadBtn");
+            downloadBtn.style.display = "block";
+            downloadBtn.onclick = function() {
+                downloadYAML(yamlString);
+            };
+        }
+
+        function downloadYAML(yamlString) {
+            const blob = new Blob([yamlString], { type: "text/yaml" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(blob);
+            link.download = "profiles.yaml";
+            link.click();
+        }
+    </script>
+
+</body>
+</html>
