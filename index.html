@@ -10,6 +10,18 @@
 
     <h2>Generate YAML for Profiles</h2>
 
+    <!-- Upload or Paste Existing YAML -->
+    <h3>Upload Existing YAML:</h3>
+    <input type="file" id="yamlFile" accept=".yaml, .yml" onchange="loadExistingYAML()">
+
+    <h3>Or Paste YAML:</h3>
+    <textarea id="yamlTextarea" rows="10" cols="50" placeholder="Paste existing YAML here..." oninput="loadYamlFromTextarea()"></textarea>
+
+    <h3>Parsed YAML:</h3>
+    <pre id="existingYamlOutput"></pre>
+
+    <hr>
+
     <button onclick="addProfile()">Add Profile</button>
     <form id="profilesForm"></form>
 
@@ -22,6 +34,35 @@
 
     <script>
         let profileCount = 0;
+        let existingProfiles = [];
+
+        function loadExistingYAML() {
+            const fileInput = document.getElementById('yamlFile');
+            const file = fileInput.files[0];
+
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(event) {
+                parseExistingYAML(event.target.result);
+            };
+            reader.readAsText(file);
+        }
+
+        function loadYamlFromTextarea() {
+            const yamlText = document.getElementById("yamlTextarea").value;
+            parseExistingYAML(yamlText);
+        }
+
+        function parseExistingYAML(yamlContent) {
+            try {
+                const parsedData = jsyaml.load(yamlContent);
+                existingProfiles = parsedData.profiles || [];
+                document.getElementById("existingYamlOutput").textContent = jsyaml.dump({ profiles: existingProfiles });
+            } catch (error) {
+                alert("Invalid YAML format. Please check your input.");
+            }
+        }
 
         function addProfile() {
             profileCount++;
@@ -39,7 +80,21 @@
                 <label>Dimensions (comma-separated): <input type="text" id="dimensions-${profileCount}" oninput="updateDimensionDropdown(${profileCount})" required></label><br><br>
 
                 <h5>Ratecards</h5>
-                <div id="ratecards-${profileCount}"></div>
+                <table border="1" id="ratecards-table-${profileCount}">
+                    <thead>
+                        <tr>
+                            <th>Dimension</th>
+                            <th>Currency</th>
+                            <th>Price</th>
+                            <th>Time Unit</th>
+                            <th>Value (Optional)</th>
+                            <th>Base Unit (Optional)</th>
+                            <th>Action</th>
+                        </tr>
+                    </thead>
+                    <tbody id="ratecards-${profileCount}">
+                    </tbody>
+                </table>
                 <button type="button" onclick="addRatecard(${profileCount})">Add Ratecard</button>
                 <hr>
             `;
@@ -51,8 +106,8 @@
             const dimensions = dimensionsInput.split(',').map(dim => dim.trim()).filter(dim => dim);
 
             document.querySelectorAll(`.dimension-${profileId}`).forEach(dropdown => {
-                const previousSelection = dropdown.value; // Save current selection
-                dropdown.innerHTML = ""; // Clear existing options
+                const previousSelection = dropdown.value;
+                dropdown.innerHTML = "";
 
                 dimensions.forEach(dim => {
                     const option = document.createElement("option");
@@ -62,7 +117,7 @@
                 });
 
                 if (dimensions.includes(previousSelection)) {
-                    dropdown.value = previousSelection; // Restore previous selection
+                    dropdown.value = previousSelection;
                 }
             });
         }
@@ -72,8 +127,8 @@
             const currencies = currencyInput.split(',').map(c => c.trim()).filter(c => c);
 
             document.querySelectorAll(`.currency-${profileId}`).forEach(dropdown => {
-                const previousSelection = dropdown.value; // Save current selection
-                dropdown.innerHTML = ""; // Clear existing options
+                const previousSelection = dropdown.value;
+                dropdown.innerHTML = "";
 
                 currencies.forEach(curr => {
                     const option = document.createElement("option");
@@ -83,47 +138,43 @@
                 });
 
                 if (currencies.includes(previousSelection)) {
-                    dropdown.value = previousSelection; // Restore previous selection
+                    dropdown.value = previousSelection;
                 }
             });
         }
 
         function addRatecard(profileId) {
-            const ratecardsDiv = document.getElementById(`ratecards-${profileId}`);
+            const ratecardsTable = document.getElementById(`ratecards-${profileId}`);
 
-            const ratecardDiv = document.createElement("div");
+            const row = document.createElement("tr");
 
-            let dimensionDropdown = `<label>Dimension: <select class="dimension-${profileId}" required></select></label><br>`;
-            let currencyDropdown = `<label>Currency: <select class="currency-${profileId}" required></select></label><br>`;
-
-            ratecardDiv.innerHTML = `
-                ${dimensionDropdown}
-                ${currencyDropdown}
-                <label>Price: <input type="number" class="price-${profileId}" required></label><br>
-                <label>Time Unit: <input type="text" class="time_unit-${profileId}" required></label><br>
-                <label>Value (optional): <input type="text" class="value-${profileId}"></label><br>
-                <label>Base Unit (optional): <input type="number" class="base_unit-${profileId}"></label><br>
-                <hr>
+            row.innerHTML = `
+                <td><select class="dimension-${profileId}" required></select></td>
+                <td><select class="currency-${profileId}" required></select></td>
+                <td><input type="number" class="price-${profileId}" required></td>
+                <td><input type="text" class="time_unit-${profileId}" required></td>
+                <td><input type="text" class="value-${profileId}"></td>
+                <td><input type="number" class="base_unit-${profileId}"></td>
+                <td><button type="button" onclick="this.parentElement.parentElement.remove()">Remove</button></td>
             `;
-            ratecardsDiv.appendChild(ratecardDiv);
+            ratecardsTable.appendChild(row);
 
-            // Update dropdowns immediately
             updateDimensionDropdown(profileId);
             updateCurrencyDropdown(profileId);
         }
 
         function generateYAML() {
             const profiles = [...existingProfiles];
-        
+
             for (let i = 1; i <= profileCount; i++) {
                 if (!document.getElementById(`name-${i}`)) continue;
-        
+
                 const name = document.getElementById(`name-${i}`).value;
                 const currencies = document.getElementById(`currency-${i}`).value.split(',').map(c => c.trim());
                 const dimensions = document.getElementById(`dimensions-${i}`).value.split(',').map(d => d.trim());
-        
+
                 const ratecards = {};
-        
+
                 document.querySelectorAll(`#ratecards-${i} tr`).forEach(row => {
                     const dimension = row.querySelector(`.dimension-${i}`).value;
                     const currency = row.querySelector(`.currency-${i}`).value;
@@ -131,51 +182,32 @@
                     const time_unit = row.querySelector(`.time_unit-${i}`).value;
                     let value = row.querySelector(`.value-${i}`).value.trim();
                     let base_unit = row.querySelector(`.base_unit-${i}`).value.trim();
-        
+
                     // Convert value to number if it's numeric, else keep it as a string
                     if (value !== "" && !isNaN(value)) {
                         value = parseFloat(value);
                     }
-        
+
                     // Convert base_unit to number if it's numeric, else remove it
                     if (base_unit !== "" && !isNaN(base_unit)) {
                         base_unit = parseInt(base_unit);
                     } else {
                         base_unit = undefined;
                     }
-        
+
                     if (!ratecards[dimension]) ratecards[dimension] = [];
                     const ratecardEntry = { price, time_unit, currency };
                     if (value !== "") ratecardEntry.value = value;
                     if (base_unit !== undefined) ratecardEntry.base_unit = base_unit;
-        
+
                     ratecards[dimension].push(ratecardEntry);
                 });
-        
+
                 profiles.push({ name, billing: { currency: currencies, dimensions, ratecard: ratecards } });
             }
-        
-            const yamlString = jsyaml.dump({ profiles });
-            document.getElementById("output").textContent = yamlString;
-        }
 
             const yamlString = jsyaml.dump({ profiles });
             document.getElementById("output").textContent = yamlString;
-
-            // Enable download button
-            const downloadBtn = document.getElementById("downloadBtn");
-            downloadBtn.style.display = "block";
-            downloadBtn.onclick = function() {
-                downloadYAML(yamlString);
-            };
-        }
-
-        function downloadYAML(yamlString) {
-            const blob = new Blob([yamlString], { type: "text/yaml" });
-            const link = document.createElement("a");
-            link.href = URL.createObjectURL(blob);
-            link.download = "profiles.yaml";
-            link.click();
         }
     </script>
 
