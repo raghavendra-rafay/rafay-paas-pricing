@@ -113,45 +113,51 @@
         }
 
         function generateYAML() {
-            const profiles = [];
+            const profiles = [...existingProfiles];
+        
             for (let i = 1; i <= profileCount; i++) {
-                if (!document.getElementById(`name-${i}`)) continue; // Skip removed profiles
-                
+                if (!document.getElementById(`name-${i}`)) continue;
+        
                 const name = document.getElementById(`name-${i}`).value;
                 const currencies = document.getElementById(`currency-${i}`).value.split(',').map(c => c.trim());
                 const dimensions = document.getElementById(`dimensions-${i}`).value.split(',').map(d => d.trim());
-
+        
                 const ratecards = {};
-
-                document.querySelectorAll(`.dimension-${i}`).forEach((dimInput, index) => {
-                    const dimension = dimInput.value;
-                    const currency = document.querySelectorAll(`.currency-${i}`)[index].value;
-                    const price = document.querySelectorAll(`.price-${i}`)[index].value;
-                    const time_unit = document.querySelectorAll(`.time_unit-${i}`)[index].value;
-                    const value = document.querySelectorAll(`.value-${i}`)[index].value; // String input now
-                    const base_unit = document.querySelectorAll(`.base_unit-${i}`)[index].value;
-
+        
+                document.querySelectorAll(`#ratecards-${i} tr`).forEach(row => {
+                    const dimension = row.querySelector(`.dimension-${i}`).value;
+                    const currency = row.querySelector(`.currency-${i}`).value;
+                    const price = parseFloat(row.querySelector(`.price-${i}`).value);
+                    const time_unit = row.querySelector(`.time_unit-${i}`).value;
+                    let value = row.querySelector(`.value-${i}`).value.trim();
+                    let base_unit = row.querySelector(`.base_unit-${i}`).value.trim();
+        
+                    // Convert value to number if it's numeric, else keep it as a string
+                    if (value !== "" && !isNaN(value)) {
+                        value = parseFloat(value);
+                    }
+        
+                    // Convert base_unit to number if it's numeric, else remove it
+                    if (base_unit !== "" && !isNaN(base_unit)) {
+                        base_unit = parseInt(base_unit);
+                    } else {
+                        base_unit = undefined;
+                    }
+        
                     if (!ratecards[dimension]) ratecards[dimension] = [];
-                    const ratecardEntry = {
-                        price: parseFloat(price),
-                        time_unit,
-                        currency
-                    };
-                    if (value) ratecardEntry.value = value; // Now a string
-                    if (base_unit) ratecardEntry.base_unit = parseInt(base_unit);
-
+                    const ratecardEntry = { price, time_unit, currency };
+                    if (value !== "") ratecardEntry.value = value;
+                    if (base_unit !== undefined) ratecardEntry.base_unit = base_unit;
+        
                     ratecards[dimension].push(ratecardEntry);
                 });
-
-                profiles.push({
-                    name,
-                    billing: {
-                        currency: currencies,
-                        dimensions,
-                        ratecard: ratecards
-                    }
-                });
+        
+                profiles.push({ name, billing: { currency: currencies, dimensions, ratecard: ratecards } });
             }
+        
+            const yamlString = jsyaml.dump({ profiles });
+            document.getElementById("output").textContent = yamlString;
+        }
 
             const yamlString = jsyaml.dump({ profiles });
             document.getElementById("output").textContent = yamlString;
