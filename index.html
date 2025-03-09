@@ -29,12 +29,28 @@
 
     <h3>Generated YAML:</h3>
     <pre id="output"></pre>
-
-    <button id="downloadBtn" style="display:none;">Download YAML</button>
+    <button id="copyButton" onclick="copyToClipboard()">Copy YAML</button>
 
     <script>
         let profileCount = 0;
         let existingProfiles = [];
+
+        function copyToClipboard() {
+            const yamlOutput = document.getElementById("output").textContent;
+        
+            if (!yamlOutput) {
+                alert("No YAML to copy!");
+                return;
+            }
+        
+            navigator.clipboard.writeText(yamlOutput)
+                .then(() => {
+                    alert("Copied to clipboard!");
+                })
+                .catch(err => {
+                    console.error("Failed to copy: ", err);
+                });
+        }
 
         function loadExistingYAML() {
             const fileInput = document.getElementById('yamlFile');
@@ -54,13 +70,28 @@
             parseExistingYAML(yamlText);
         }
 
-        function parseExistingYAML(yamlContent) {
+        function parseExistingYAML() {
+            const yamlTextarea = document.getElementById("yamlTextarea").value;
+            const parsedYamlContainer = document.getElementById("parsedYamlContainer");
+            const parsedYamlOutput = document.getElementById("parsedYamlOutput");
+        
             try {
-                const parsedData = jsyaml.load(yamlContent);
-                existingProfiles = parsedData.profiles || [];
-                document.getElementById("existingYamlOutput").textContent = jsyaml.dump({ profiles: existingProfiles });
+                const parsedData = jsyaml.load(yamlTextarea);
+                
+                if (parsedData && typeof parsedData === "object") {
+                    parsedYamlContainer.style.display = "none"; // Hide Parsed YAML if no error
+                    return parsedData;
+                } else {
+                    throw new Error("Invalid YAML structure.");
+                }
             } catch (error) {
-                alert("Invalid YAML format. Please check your input.");
+                alert("Error in YAML format! Showing parsed YAML for debugging.");
+                
+                // Show "Parsed YAML" section
+                parsedYamlContainer.style.display = "block";
+                parsedYamlOutput.textContent = jsyaml.dump(jsyaml.load(yamlTextarea) || {});
+                
+                return {}; // Return empty object so it doesn't break the script
             }
         }
 
