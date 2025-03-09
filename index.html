@@ -164,7 +164,20 @@
         }
 
         function generateYAML() {
-            const profiles = [...existingProfiles];
+            let existingData = {}; // Store existing YAML data
+
+            try {
+                existingData = jsyaml.load(document.getElementById("yamlTextarea").value) || {};
+            } catch (error) {
+                alert("Invalid YAML format in the textarea. Please check your input.");
+                return;
+            }
+
+            if (!existingData.profiles) {
+                existingData.profiles = [];
+            }
+
+            const profiles = [...existingData.profiles];
 
             for (let i = 1; i <= profileCount; i++) {
                 if (!document.getElementById(`name-${i}`)) continue;
@@ -206,7 +219,10 @@
                 profiles.push({ name, billing: { currency: currencies, dimensions, ratecard: ratecards } });
             }
 
-            const yamlString = jsyaml.dump({ profiles });
+            // Update only the profiles key while preserving other keys
+            existingData.profiles = profiles;
+
+            const yamlString = jsyaml.dump(existingData);
             document.getElementById("output").textContent = yamlString;
         }
     </script>
