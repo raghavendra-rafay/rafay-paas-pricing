@@ -85,7 +85,7 @@
                     throw new Error("Invalid YAML structure.");
                 }
             } catch (error) {
-                alert("Error in YAML format! Showing parsed YAML for debugging.");
+                alert("Error in YAML format! Showing parsed YAML for debugging.", error);
                 
                 // Show "Parsed YAML" section
                 parsedYamlContainer.style.display = "block";
